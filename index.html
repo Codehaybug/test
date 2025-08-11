@@ -522,6 +522,16 @@
     <script>
         let currentBackground = 1;
 
+        // Build a CORS-safe image URL so drawing to canvas won't fail
+        function toCorsImage(url) {
+            try {
+                // images.weserv.nl serves images with proper CORS headers
+                return `https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=1200&h=800&fit=cover`;
+            } catch (e) {
+                return url;
+            }
+        }
+
         function changeBackground(bgNumber) {
             currentBackground = bgNumber;
             document.querySelectorAll('.bg-option').forEach(option => option.classList.remove('active'));
@@ -639,6 +649,7 @@
 
             const woodImg = new Image();
             woodImg.crossOrigin = 'anonymous';
+            woodImg.referrerPolicy = 'no-referrer';
 
             const backgrounds = {
                 1: 'https://media.istockphoto.com/id/1400136454/vi/anh/k%E1%BA%BFt-c%E1%BA%A5u-t%E1%BA%A5m-v%C3%A1n-g%E1%BB%97-n%E1%BB%81n-b%C3%A0n-g%E1%BB%97-g%E1%BB%A5-l%E1%BB%97i-th%E1%BB%9Di.jpg',
@@ -687,6 +698,15 @@
             };
 
             woodImg.onerror = function() {
+                // If the direct URL failed and we didn't already try the CORS proxy, try once more via proxy
+                const directUrl = backgrounds[currentBackground];
+                if (!woodImg.__retried) {
+                    woodImg.__retried = true;
+                    woodImg.src = toCorsImage(directUrl);
+                    return;
+                }
+
+                // Final graceful fallback: synthetic wood-like gradient
                 const woodGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
                 woodGradient.addColorStop(0, '#8B7355');
                 woodGradient.addColorStop(0.5, '#A0926B');
@@ -719,6 +739,7 @@
                 document.head.appendChild(script);
             };
 
+            // Attempt to load the selected background directly first
             woodImg.src = backgrounds[currentBackground];
         }
 
